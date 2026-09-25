@@ -13,6 +13,36 @@
 		body {
 			font-family: 'Plus Jakarta Sans', sans-serif;
 		}
+
+		#suggestions-container {
+			position: absolute;
+			z-index: 50;
+			background: white;
+			border: 1px solid #e4e4e7;
+			border-radius: 0.75rem;
+			margin-top: 4px;
+			width: 100%;
+			max-height: 240px;
+			overflow-y: auto;
+			box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+		}
+
+		.suggestion-item {
+			padding: 12px 16px;
+			font-size: 13px;
+			color: #27272a;
+			cursor: pointer;
+			border-bottom: 1px solid #f4f4f5;
+			text-align: left;
+		}
+
+		.suggestion-item:hover {
+			background-color: #f4f4f5;
+		}
+
+		.suggestion-item:last-child {
+			border-bottom: none;
+		}
 	</style>
 </head>
 
@@ -21,12 +51,12 @@
 	<!-- Header / Nav -->
 	<header class="sticky top-0 z-50 bg-[#FAFAFA]/90 backdrop-blur-md border-b border-zinc-200/80">
 		<div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-			<div class="font-bold tracking-tight text-sm sm:text-base text-zinc-900 flex items-center gap-2">
+			<a href="#" class="font-bold tracking-tight text-sm sm:text-base text-zinc-900 flex items-center gap-2 hover:opacity-80 transition-opacity">
 				<span class="w-2 h-2 rounded-full bg-zinc-900"></span>
 				BostonADU Compliance
-			</div>
+			</a>
 			<div>
-				<a href="#audit-form" class="bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-full transition-all shadow-sm">
+				<a href="#audit-form" class="bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-full transition-all shadow-sm inline-block">
 					Request Report
 				</a>
 			</div>
@@ -82,21 +112,23 @@
 				<p class="text-zinc-600 text-sm">Submit your target address below. Delivered straight to your inbox within 24–48 hours ($300 flat fee).</p>
 			</div>
 
-			<form class="bg-white p-6 sm:p-10 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4">
+			<form id="auditForm" onsubmit="handleFormSubmit(event)" class="bg-white p-6 sm:p-10 rounded-3xl border border-zinc-200/80 shadow-sm space-y-4">
 				<div>
 					<label class="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">Company / Your Name</label>
-					<input type="text" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="e.g., Apex Residential Builders">
+					<input type="text" id="companyInput" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="e.g., Apex Residential Builders">
 				</div>
-				<div>
+				<div class="relative">
 					<label class="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">Target Property Address</label>
-					<input type="text" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="e.g., 42 Elm St, Newton, MA">
+					<input type="text" id="addressInput" autocomplete="off" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="e.g., 42 Elm St, Newton, MA">
+					<!-- Autocomplete suggestion box -->
+					<div id="suggestions-container" class="hidden"></div>
 				</div>
 				<div>
 					<label class="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">Project Scope (2 sentences max)</label>
-					<textarea rows="3" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="Detached 900 sq ft backyard ADU structure..."></textarea>
+					<textarea id="scopeInput" rows="3" required class="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-zinc-50/50" placeholder="Detached 900 sq ft backyard ADU structure..."></textarea>
 				</div>
-				<button type="submit" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3.5 rounded-xl shadow-md transition-all text-sm tracking-wide mt-2">
-					Submit Property & Proceed to Payment ($300)
+				<button type="submit" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3.5 rounded-xl shadow-md transition-all text-sm tracking-wide mt-2 cursor-pointer">
+					Submit Property & Proceed to Email ($300)
 				</button>
 				<p class="text-center text-xs text-zinc-500 pt-2">Includes setbacks, height limitations, parking rules, & town forms.</p>
 			</form>
@@ -108,6 +140,97 @@
 		<p>&copy; 2026 BostonADU Compliance Service. All rights reserved.</p>
 	</footer>
 
+	<script>
+		const addressInput = document.getElementById('addressInput');
+		const suggestionsContainer = document.getElementById('suggestions-container');
+		let debounceTimer;
+
+		addressInput.addEventListener('input', function() {
+			clearTimeout(debounceTimer);
+			const query = this.value.trim();
+
+			if (query.length < 3) {
+				suggestionsContainer.classList.add('hidden');
+				suggestionsContainer.innerHTML = '';
+				return;
+			}
+
+			suggestionsContainer.classList.remove('hidden');
+			suggestionsContainer.innerHTML = '<div class="suggestion-item text-zinc-400">Finding Massachusetts address...</div>';
+
+			debounceTimer = setTimeout(() => {
+				const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=42.4072&lon=-71.3824`;
+
+				fetch(url)
+					.then(response => response.json())
+					.then(data => {
+						suggestionsContainer.innerHTML = '';
+						if (data && data.features && data.features.length > 0) {
+							suggestionsContainer.classList.remove('hidden');
+							data.features.forEach(feature => {
+								const props = feature.properties;
+
+								let parts = [];
+								if (props.housenumber) parts.push(props.housenumber);
+								if (props.street) parts.push(props.street);
+								if (props.city || props.town || props.village) parts.push(props.city || props.town || props.village);
+								if (props.state) parts.push(props.state);
+								if (props.postcode) parts.push(props.postcode);
+
+								const fullAddress = parts.join(', ');
+
+								if (parts.length > 0) {
+									const div = document.createElement('div');
+									div.className = 'suggestion-item';
+									div.textContent = fullAddress;
+									div.addEventListener('click', () => {
+										addressInput.value = fullAddress;
+										suggestionsContainer.classList.add('hidden');
+										suggestionsContainer.innerHTML = '';
+									});
+									suggestionsContainer.appendChild(div);
+								}
+							});
+
+							if (suggestionsContainer.children.length === 0) {
+								suggestionsContainer.innerHTML = '<div class="suggestion-item text-zinc-400">No exact matches found. Keep typing...</div>';
+							}
+						} else {
+							suggestionsContainer.innerHTML = '<div class="suggestion-item text-zinc-400">No matching MA address found.</div>';
+						}
+					})
+					.catch(() => {
+						suggestionsContainer.classList.add('hidden');
+					});
+			}, 250);
+		});
+
+		document.addEventListener('click', function(e) {
+			if (!addressInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+				suggestionsContainer.classList.add('hidden');
+			}
+		});
+
+		function handleFormSubmit(event) {
+			event.preventDefault();
+			const company = document.getElementById('companyInput').value.trim() || '[Not provided yet]';
+			const address = document.getElementById('addressInput').value.trim() || '[Not provided yet]';
+			const scope = document.getElementById('scopeInput').value.trim() || '[Not provided yet]';
+
+			const subject = "New ADU Compliance Audit Request: " + address;
+
+			const body =
+				"NEW ADU COMPLIANCE AUDIT REQUEST\r\n\r\n" +
+				"CLIENT / COMPANY NAME:\r\n" + company + "\r\n\r\n" +
+				"TARGET PROPERTY ADDRESS:\r\n" + address + "\r\n\r\n" +
+				"PROJECT SCOPE:\r\n" + scope + "\r\n\r\n" +
+				"DETAILS:\r\n" +
+				"• Service Fee: $300 (Flat Fee)\r\n" +
+				"• Target Turnaround: 24-48 Hours";
+
+			window.location.href = `mailto:aducompliance@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+		}
+	</script>
 </body>
 
 </html>
